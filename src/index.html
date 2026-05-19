@@ -1,0 +1,203 @@
+ <!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Center | Projet CMV</title>
+
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+<!-- ================= DASHBOARD ================= -->
+<div id="dashboard-view">
+
+  <div class="dashboard-container">
+    <header>
+      <h1>Tableau de Bord <span>CMV System v2.0</span></h1>
+      <div id="connection-status" class="status-badge">Système en ligne</div>
+    </header>
+
+    <main class="vertical-grid">
+      <div class="horizontal-grid"> 
+        <!-- IMAGE -->
+        <div class="machine-container">
+          <img src="Schema_poulies.png" class="machine-image">
+
+          <!-- CAPTEURS -->
+          <div class="capteur" style="top: 11%; left: 19%;">
+            <span class="label">T1</span>
+            <span id="val_t1" class="valeur">24.5 °C</span>
+          </div>
+
+          <div class="capteur" style="top: 11%; left: 80%;">
+            <span class="label">T2</span>
+            <span id="val_t2" class="valeur">24.5 °C</span>
+          </div>
+
+          <div class="capteur" style="top: 75%; left: 80%;">
+            <span class="label">T3</span>
+            <span id="val_t3" class="valeur">24.5 °C</span>
+          </div>
+
+          <div class="capteur" style="top: 92%; left: 50%;">
+            <span class="label">T4</span>
+            <span id="val_t4" class="valeur">24.5 °C</span>
+          </div>
+
+          <div class="capteur" style="top: 75%; left: 20%;">
+            <span class="label">T5</span>
+            <span id="val_t5" class="valeur">24.5 °C</span>
+          </div>
+        </div>
+
+        <!-- COLONNE DROITE -->
+        <div class="vertical-grid">
+          <section class="card ">
+            <h2>Vitesse Rotation</h2>
+            <div class="main-value">
+              <span id="rpmValueDashboard">0</span></span><small> RPM</small>
+            </div>
+          </section>
+
+          <section class="card ">
+            <h2>Récupération Énergie</h2>
+            <div class="main-value highlight">
+              <span id="energyValueDashboard">0</span><small> W</small>
+            </div>
+          </section>
+        </div>
+      </div>
+
+        <!-- CONTROLS -->
+        <section class="card controls-card">
+          <h2>Injection de Courant</h2>
+
+          <div class="progress-container">
+            <div class="progress-labels">
+              <span>0%</span>
+              <span id="progress-percent">0%</span>
+              <span>100%</span>
+            </div>
+
+            <div class="progress-bar-bg">
+              <div id="progress-bar" class="progress-bar-fill"></div>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <div class="voltage-display">
+              Tension: <strong id="voltageValue">0.0</strong> V
+            </div>
+
+            <input type="range" id="injectionSlider" min="0" max="100" value="0">
+
+            <button id="injectBtn" class="btn btn-inject">
+              Injecter le courant
+            </button>
+          </div>
+    </main>
+  </div>
+  <div class="nav-bar">
+    <button onclick="showGraphs()" class="nav-button">Graphiques temporels</button>
+  </div>
+</div>
+
+<!-- ================= GRAPHS VIEW ================= -->
+
+  <div id="graphs-view" style="display:none;">
+
+    <div class="graphics-container">
+      <header>
+        <h1>Evolution des données <span>CMV System v2.0</span></h1>
+        <div class="status-badge">Système en ligne</div>
+      </header>
+
+      <main class="horizontal-grid">
+
+          <!-- RPM -->
+        <section class="card rpm-card">
+          <div class="card-header">
+            <h2>Vitesse Rotation</h2>
+            <span class="unit">RPM</span>
+          </div>
+          <div class="visual-data">
+            <canvas id="rpmChart"></canvas>
+            <div class="main-value">
+              <span id="rpmValueGraph">0</span></span><small> RPM</small>
+          </div>
+        </section>
+
+        <!-- TEMP -->
+        <section class="card temp-card">
+          <h2>Monitoring Thermique</h2>
+
+          <div class="temp-grid">
+            <div class="temp-item">
+              <span class="label">T1</span>
+              <span class="value"><span id="temp1Graph">0</span>°C</span>
+            </div>
+
+            <div class="temp-item">
+              <span class="label">T2</span>
+              <span class="value"><span id="temp2Graph">0</span>°C</span>
+            </div>
+
+            <div class="temp-item">
+              <span class="label">T3</span>
+              <span class="value secondary"><span id="temp3Graph">0</span>°C</span>
+            </div>
+
+            <div class="temp-item">
+              <span class="label">T4</span>
+              <span class="value"><span id="temp4Graph">0</span>°C</span>
+            </div>
+
+            <div class="temp-item">
+              <span class="label">T5</span>
+              <span class="value secondary"><span id="temp5Graph">0</span>°C</span>
+            </div>
+          </div>
+
+          <canvas id="tempChart"></canvas>
+        </section>
+
+        <!-- ENERGY -->
+        <section class="card energy-card">
+          <h2>Récupération Énergie</h2>
+
+          <div class="visual-data">
+            <canvas id="energyChart"></canvas>
+            <div class="main-value highlight">
+              <span id="energyValueGraph">0</span><small>W</small>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+        <!-- NAVIGATION -->
+    <div class="nav-bar">
+      <button onclick="showDashboard()" class="nav-button">Dashboard</button>
+    </div>
+  </div>
+<script src="/main.js"></script>
+
+<script>
+function showDashboard() {
+  document.getElementById("dashboard-view").style.display = "block";
+  document.getElementById("graphs-view").style.display = "none";
+}
+
+function showGraphs() {
+  document.getElementById("dashboard-view").style.display = "none";
+  document.getElementById("graphs-view").style.display = "block";
+
+  if (typeof initCharts === "function") {
+    initCharts();
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,246 @@
+:root {
+  --bg-color: #ffffff;
+  --card-bg: #d7d7d7;
+  --text-main: #000000;
+  --text-dim: #94a3b8;
+  --accent-blue: #53d7ff;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-orange: #f59e0b;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-container {
+  max-width: 1200px;
+  max-height: auto ;
+  margin: 0 auto;
+  
+}
+
+.graphics-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  
+}
+header {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  border-bottom: 1px solid #2d3748;
+  padding-bottom: 15px;
+}
+
+h1 span {
+  font-size: 0.5em;
+  color: var(--accent-blue);
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.horizontal-grid {
+  display: flex;
+  gap: 20px;
+  flex: 1;            /* PREND L’ESPACE DISPONIBLE */
+  min-height: 0;      /* CRITIQUE pour éviter overflow */
+}
+
+.vertical-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 50px;
+  height: auto;
+  width: auto ;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #d1d2d5;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  width: 100%;
+}
+
+.card.rpm-card,
+.card.temp-card,
+.card.energy-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #d1d2d5;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  width: 33%;
+}
+
+.horizontal-grid .card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.visual-data {
+  position: relative;
+  margin-top: 15px;
+}
+
+.main-value {
+  font-size: 3rem;
+  font-weight: bold;
+  text-align: center;
+  margin: 10px 0;
+}
+
+.highlight { color: var(--accent-orange); }
+
+.temp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.temp-item {
+  background: rgba(209, 209, 209, 0.05);
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.temp-item .label { font-size: 0.8rem; color: var(--text-dim); display: block; }
+.temp-item .value { font-size: 1.2rem; font-weight: bold; }
+
+/* Boutons */
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.btn {
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.2s;
+}
+
+.btn:active { transform: scale(0.98); }
+.btn-low { background: var(--accent-blue); color: #000; }
+.btn-high { background: var(--accent-orange); color: #000; }
+.btn-stop { background: var(--accent-red); color: #fff; grid-column: span 2; }
+
+.status-indicator {
+  margin-top: 15px;
+  font-size: 0.9rem;
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+
+.progress-bar-bg {
+  background: #2d3748;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.progress-bar-fill {
+  background: var(--accent-blue);
+  height: 100%;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.slider {
+  width: 100%;
+  margin: 15px 0;
+  cursor: pointer;
+}
+
+.btn-inject {
+  background: var(--accent-green);
+  color: #000;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.voltage-display {
+  font-family: 'Courier New', monospace;
+  font-size: 1.5rem;
+  text-align: center;
+  padding: 10px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+}
+
+/* La boîte qui sert de repère */
+.machine-container {
+  position: relative; /* TRÈS IMPORTANT : Définit l'origine des coordonnées (0,0) */
+  display: inline-block; /* La boîte s'adapte à la taille de l'image */
+  max-width: 800px; /* Taille max de ton schéma */
+  margin: 20px auto;
+  min-height: 0;
+}
+
+/* L'image prend 100% de la place de sa boîte */
+.machine-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Le style de base pour un label de capteur */
+.capteur {
+  position: absolute; /* TRÈS IMPORTANT : Se positionne par rapport au conteneur */
+  transform: translate(-50%, -50%); /* Centre le label pile sur le point de coordonnée */
+  white-space: nowrap;
+  /* L'esthétique (couleurs, bordures...) */
+  background-color: rgba(30, 41, 59, 0.85); /* Fond sombre semi-transparent */
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  font-family: sans-serif;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+/* Pour différencier visuellement la poulie des températures si tu veux */
+.capteur.poulie {
+  background-color: rgba(185, 28, 28, 0.85); /* Fond rouge */
+}
+
+.capteur .label {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 3px;
+}
+
+.capteur .valeur {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
