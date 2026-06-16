@@ -20,23 +20,23 @@
     </header>
 
     <main class="vertical-grid">
-      <div class="horizontal-grid"> 
+      <div class="horizontal-grid dashboard-main-grid"> 
         <!-- IMAGE -->
         <div class="machine-container">
           <img src="Schema_poulies.png" class="machine-image">
 
           <!-- CAPTEURS -->
-          <div class="capteur" style="top: 11%; left: 19%;">
+          <div class="capteur" style="top: 20%; left: 37%;">
             <span class="label">T1</span>
             <span id="val_t1" class="valeur">24.5 °C</span>
           </div>
 
-          <div class="capteur" style="top: 11%; left: 80%;">
+          <div class="capteur" style="top: 20%; left: 63%;">
             <span class="label">T2</span>
             <span id="val_t2" class="valeur">24.5 °C</span>
           </div>
 
-          <div class="capteur" style="top: 75%; left: 80%;">
+          <div class="capteur" style="top: 75%; left: 60%;">
             <span class="label">T3</span>
             <span id="val_t3" class="valeur">24.5 °C</span>
           </div>
@@ -46,23 +46,23 @@
             <span id="val_t4" class="valeur">24.5 °C</span>
           </div>
 
-          <div class="capteur" style="top: 75%; left: 20%;">
+          <div class="capteur" style="top: 75%; left: 40%;">
             <span class="label">T5</span>
             <span id="val_t5" class="valeur">24.5 °C</span>
           </div>
         </div>
 
         <!-- COLONNE DROITE -->
-        <div class="vertical-grid">
+        <div class="vertical-grid dashboard-stat-column">
           <section class="card ">
             <h2>Vitesse Rotation</h2>
             <div class="main-value">
-              <span id="rpmValueDashboard">0</span></span><small> RPM</small>
+              <span id="rpmValueDashboard">0</span><small> RPM</small>
             </div>
           </section>
 
           <section class="card ">
-            <h2>Récupération Énergie</h2>
+            <h2>Puissance récupérée</h2>
             <div class="main-value highlight">
               <span id="energyValueDashboard">0</span><small> W</small>
             </div>
@@ -70,33 +70,46 @@
         </div>
       </div>
 
-        <!-- CONTROLS -->
-        <section class="card controls-card">
+      <!-- CONTROLS -->
+      <section class="card controls-card">
+        <div class="card-header control-header">
           <h2>Injection de Courant</h2>
+          <span id="injectionStatus" class="control-status">Prêt</span>
+        </div>
 
-          <div class="progress-container">
-            <div class="progress-labels">
-              <span>0%</span>
-              <span id="progress-percent">0%</span>
-              <span>100%</span>
+        <div class="injection-console">
+          <div class="pwm-slider-stack">
+            <div class="progress-container">
+              <div class="progress-labels">
+                <span>0%</span>
+                <span id="progress-percent">0%</span>
+                <span>100%</span>
+              </div>
+
+              <div class="progress-bar-bg">
+                <div id="progress-bar" class="progress-bar-fill"></div>
+              </div>
             </div>
 
-            <div class="progress-bar-bg">
-              <div id="progress-bar" class="progress-bar-fill"></div>
+            <div class="slider-row slider-only">
+              <input type="range" id="injectionSlider" min="0" max="100" step="0.1" value="0">
             </div>
           </div>
 
-          <div class="controls-grid">
-            <div class="voltage-display">
-              Tension: <strong id="voltageValue">0.0</strong> V
-            </div>
-
-            <input type="range" id="injectionSlider" min="0" max="100" value="0">
-
-            <button id="injectBtn" class="btn btn-inject">
-              Injecter le courant
-            </button>
+          <div class="preset-row">
+            <button class="preset-button" type="button" data-preset="0">0%</button>
+            <button class="preset-button" type="button" data-preset="25">25%</button>
+            <button class="preset-button" type="button" data-preset="50">50%</button>
+            <button class="preset-button" type="button" data-preset="75">75%</button>
+            <button class="preset-button" type="button" data-preset="100">100%</button>
           </div>
+
+          <div class="action-row">
+            <button id="zeroInjectionBtn" class="btn btn-secondary" type="button">Stop</button>
+            <button id="injectBtn" class="btn btn-inject" type="button">Appliquer</button>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
   <div class="nav-bar">
@@ -110,7 +123,7 @@
 
     <div class="graphics-container">
       <header>
-        <h1>Evolution des données <span>CMV System v2.0</span></h1>
+        <h1>Évolution des données <span>CMV System v2.0</span></h1>
         <div class="status-badge">Système en ligne</div>
       </header>
 
@@ -123,9 +136,10 @@
             <span class="unit">RPM</span>
           </div>
           <div class="visual-data">
-            <canvas id="rpmChart"></canvas>
+            <canvas id="rpmChart" width="520" height="260"></canvas>
             <div class="main-value">
-              <span id="rpmValueGraph">0</span></span><small> RPM</small>
+              <span id="rpmValueGraph">0</span><small> RPM</small>
+            </div>
           </div>
         </section>
 
@@ -158,23 +172,75 @@
               <span class="label">T5</span>
               <span class="value secondary"><span id="temp5Graph">0</span>°C</span>
             </div>
+
+            <div class="temp-item wire-temp">
+              <span class="label">T fil suivie</span>
+              <span class="value"><span id="wireTempGraph">0</span>°C</span>
+            </div>
+
+            <div class="temp-item theoretical-temp">
+              <span class="label">T théorie</span>
+              <span class="value secondary"><span id="tempTheoreticalGraph">0</span>°C</span>
+            </div>
           </div>
 
-          <canvas id="tempChart"></canvas>
+          <canvas id="tempChart" width="640" height="300"></canvas>
         </section>
 
         <!-- ENERGY -->
         <section class="card energy-card">
-          <h2>Récupération Énergie</h2>
+          <h2>Puissance récupérée</h2>
 
           <div class="visual-data">
-            <canvas id="energyChart"></canvas>
+            <canvas id="energyChart" width="520" height="260"></canvas>
             <div class="main-value highlight">
               <span id="energyValueGraph">0</span><small>W</small>
             </div>
           </div>
         </section>
       </main>
+
+      <section class="card model-panel">
+        <div class="card-header">
+          <div>
+            <span class="section-kicker">Comparaison temps réel</span>
+            <h2>Modèle théorique NiTiNOL</h2>
+          </div>
+          <span class="unit">SMA</span>
+        </div>
+
+        <div class="model-grid">
+          <div class="model-item">
+            <span class="label">Température modèle</span>
+            <span class="value"><span id="modelTempGraph">0</span>°C</span>
+          </div>
+
+          <div class="model-item">
+            <span class="label">Austénite</span>
+            <span class="value" id="modelPhaseGraph">0%</span>
+          </div>
+
+          <div class="model-item">
+            <span class="label">Module E'</span>
+            <span class="value"><span id="modelModulusGraph">0</span> GPa</span>
+          </div>
+
+          <div class="model-item">
+            <span class="label">Force SMA</span>
+            <span class="value"><span id="modelForceGraph">0</span> N</span>
+          </div>
+
+          <div class="model-item">
+            <span class="label">Puissance th.</span>
+            <span class="value"><span id="modelPowerGraph">0</span> W</span>
+          </div>
+
+          <div class="model-item">
+            <span class="label">Rendement thermique</span>
+            <span class="value" id="modelEfficiencyGraph">0%</span>
+          </div>
+        </div>
+      </section>
     </div>
         <!-- NAVIGATION -->
     <div class="nav-bar">
