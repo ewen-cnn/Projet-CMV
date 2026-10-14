@@ -50,6 +50,8 @@ pub struct SharedState {
 }
 
 const BAUD_RATE: u32 = 115200;
+/// USB vendor ID of STMicroelectronics (ST-LINK virtual COM port on Nucleo boards).
+const STM_USB_VID: u16 = 0x0483;
 const PREFERRED_PORTS: [&str; 4] = [
     "/dev/ttyACM0",
     "/dev/ttyACM1",
@@ -75,11 +77,11 @@ fn get_sensor_data(state: tauri::State<'_, SharedState>) -> Result<SensorData, S
 
 #[tauri::command]
 fn set_pwm(duty: f32, state: tauri::State<'_, SharedState>) -> Result<(), String> {
-    if duty < 0.0 || duty > 100.0 {
+    if !(0.0..=100.0).contains(&duty) {
         return Err("Duty-cycle invalide. Valeur attendue entre 0 et 100.".into());
     }
 
-    let command = format!("Duty : {:.1}\n", duty);
+    let command = pwm_command(duty);
 
     let mut port_guard = state
         .write_port
@@ -106,6 +108,12 @@ fn set_pwm(duty: f32, state: tauri::State<'_, SharedState>) -> Result<(), String
     }
 
     Ok(())
+}
+
+/// Builds the duty-cycle command understood by the firmware
+/// (`handle_uart_command` in firmware/main.c expects `PWM;<0..100>`).
+fn pwm_command(duty: f32) -> String {
+    format!("PWM;{:.1}\n", duty)
 }
 
 //
@@ -237,11 +245,11 @@ fn extract_pwm_ack_duty(line: &str) -> Option<&str> {
     }
 
     if let Some(payload) = line.strip_prefix("ACK PWM DUTY=") {
-        return payload.trim().split_whitespace().next();
+        return payload.split_whitespace().next();
     }
 
     if let Some(payload) = line.strip_prefix("ACK PWM DUTY =") {
-        return payload.trim().split_whitespace().next();
+        return payload.split_whitespace().next();
     }
 
     None
@@ -279,19 +287,26 @@ fn parse_line(line: &str) -> Option<SensorData> {
 }
 
 fn find_stm32_port() -> String {
-    for port in PREFERRED_PORTS {
-        if Path::new(port).exists() {
-            return port.to_string();
+    if let Ok(ports) = serialport::available_ports() {
+        // 1. Any port exposed by an ST-LINK: works on Linux (/dev/ttyACM*) and Windows (COMx).
+        if let Some(port) = ports.iter().find(|port| {
+            matches!(&port.port_type, serialport::SerialPortType::UsbPort(info) if info.vid == STM_USB_VID)
+        }) {
+            return port.port_name.clone();
+        }
+
+        // 2. Generic USB-serial adapters on Linux.
+        if let Some(port) = ports
+            .iter()
+            .find(|port| port.port_name.contains("ttyACM") || port.port_name.contains("ttyUSB"))
+        {
+            return port.port_name.clone();
         }
     }
 
-    if let Ok(ports) = serialport::available_ports() {
-        if let Some(port) = ports.into_iter().find(|port| {
-            port.port_name.contains("ttyACM")
-                || port.port_name.contains("ttyUSB")
-                || port.port_name.contains("STM")
-        }) {
-            return port.port_name;
+    for port in PREFERRED_PORTS {
+        if Path::new(port).exists() {
+            return port.to_string();
         }
     }
 
@@ -318,6 +333,13 @@ mod tests {
             extract_pwm_ack_duty("ACK;PWM;42;COMMANDE_RECUE"),
             Some("42")
         );
+    }
+
+    #[test]
+    fn pwm_command_matches_firmware_protocol() {
+        // Firmware accepts "PWM;" followed by a value parsed with strtof.
+        assert_eq!(pwm_command(42.0), "PWM;42.0\n");
+        assert!(pwm_command(100.0).starts_with("PWM;"));
     }
 
     #[test]
