@@ -18,7 +18,7 @@ Le projet relie trois couches :
             ▼                                              │
  ┌───────────────────────────┐   UART 115200   ┌───────────┴──────────────┐
  │ STM32 + FreeRTOS          │ ──────────────► │ Tauri (Rust)             │
- │  Task_CapteurTEMP  (ADC)  │  trames 30 Hz   │  thread lecteur série    │
+ │  Task_CapteurTEMP  (ADC)  │  trames 2 Hz    │  thread lecteur série    │
  │  Task_CapteurVIT   (front)│                 │  état partagé Arc<Mutex> │
  │  Task_Envoie       (UART) │ ◄────────────── │  commande set_pwm        │
  │  defaultTask (PWM TIM3)   │   PWM;<duty>    └───────────┬──────────────┘
@@ -28,20 +28,33 @@ Le projet relie trois couches :
                                                + modèle théorique SMA
 ```
 
-## Firmware (`firmware/main.c`)
+## Firmware (`firmware/`)
 
-- 4 tâches FreeRTOS (CMSIS-RTOS v1) avec priorités distinctes : acquisition température (haute), comptage d'impulsions (au-dessus de la normale), application du rapport cyclique, envoi série (idle).
+Projet STM32CubeIDE complet (`CMV_firmware`) pour carte **NUCLEO-F411RE** : configuration CubeMX (`CMV_firmware.ioc`), code applicatif, HAL et FreeRTOS.
+
+- 4 tâches FreeRTOS (CMSIS-RTOS v1) avec priorités distinctes : acquisition température (haute), comptage d'impulsions (au-dessus de la normale), application du rapport cyclique (normale), envoi série (idle).
 - Horloge système 80 MHz (HSI + PLL), PWM sur TIM3 à **100 Hz** avec une résolution de 10 000 pas.
+- Deux voies analogiques lues sur un seul ADC1, en conversions logicielles successives (sélection du canal avant chaque mesure).
 - Réception UART **par interruption**, octet par octet, avec tampon de ligne borné. Un débordement de ce tampon est signalé à l'IHM au lieu d'être ignoré silencieusement.
 - Les acquittements et les erreurs sont émis depuis la tâche d'envoi, jamais depuis l'interruption.
 
-Seul le code utilisateur est versionné : `main.c` provient d'un projet STM32CubeIDE (le fichier `.ioc`, `main.h` et les drivers HAL n'y figurent pas). Les parties générées par CubeMX restent sous licence STMicroelectronics.
+| Broche (Nucleo) | Fonction |
+| --- | --- |
+| PA0 (A0) | ADC1_IN0, capteur de température T1 |
+| PA1 (A1) | ADC1_IN1, capteur de température T2 |
+| PA10 (D2) | Entrée impulsions du capteur de rotation |
+| PB4 (D5) | TIM3_CH1, PWM de l'étage d'injection de courant |
+| PA2 / PA3 | USART2 TX / RX (port COM virtuel du ST-LINK, 115 200 bauds) |
+
+**Compiler et flasher** : *File → Import → Existing Projects into Workspace*, sélectionner le dossier `firmware/`, puis *Build* et *Run* dans STM32CubeIDE.
+
+Le `.ioc` correspond à la configuration du code (ADC, UART et son interruption, timers, tâches FreeRTOS) et tout le code applicatif est dans les blocs `USER CODE`. Avant une régénération CubeMX, partir d'un arbre Git propre pour relire le diff produit.
 
 ## Protocole série
 
 | Sens | Trame | Rôle |
 | --- | --- | --- |
-| STM32 → PC | `<impulsions>\|<T1>\|<T2>\|<duty>\r\n` | Mesures, environ 30 Hz |
+| STM32 → PC | `<impulsions>\|<T1>\|<T2>\|<duty>\r\n` | Mesures, toutes les 500 ms |
 | PC → STM32 | `PWM;<0..100>\n` | Consigne de rapport cyclique (bornée, arrondie à l'entier) |
 | STM32 → PC | `ACK;PWM;<duty>;COMMANDE_RECUE\r\n` | Accusé de réception de la consigne |
 | STM32 → PC | `ERR;PWM`, `ERR;CMD`, `ERR;OVERFLOW` | Valeur illisible, commande inconnue, ligne trop longue |
@@ -77,4 +90,4 @@ cd src-tauri && cargo test
 
 ## Licence
 
-Code de l'IHM sous licence [MIT](LICENSE). Pour les parties générées de `firmware/main.c`, voir l'en-tête du fichier.
+Code de l'IHM et code applicatif du firmware sous licence [MIT](LICENSE). Les fichiers générés par CubeMX et les bibliothèques tierces gardent leur licence d'origine : HAL et CMSIS de STMicroelectronics (`firmware/Drivers`), FreeRTOS sous licence MIT (`firmware/Middlewares`).
