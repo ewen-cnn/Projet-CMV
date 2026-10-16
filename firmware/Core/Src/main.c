@@ -78,7 +78,6 @@ static uint32_t Read_ADC_Channel(uint32_t channel);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint8_t MSG[50] = {'\0'};
 uint8_t uart_rx_byte = 0;
 char uart_rx_line[32] = {'\0'};
 uint8_t uart_rx_index = 0;
@@ -587,9 +586,7 @@ static void handle_uart_command(const char *line)
 {
     const char *value_start = NULL;
 
-    if (strncmp(line, "Duty : ", 7) == 0) {
-        value_start = &line[7];
-    } else if (strncmp(line, "PWM;", 4) == 0) {
+    if (strncmp(line, "PWM;", 4) == 0) {
         value_start = &line[4];
     } else {
         pending_uart_error = UART_ERROR_CMD;
@@ -665,7 +662,7 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	TIM3->CCR1 = (9999*duty)/100.0;
+	TIM3->CCR1 = (9999 * duty) / 100;
 
     osDelay(333);
   }
@@ -717,15 +714,16 @@ void StartTask_Envoie(void const * argument)
   /* Infinite loop */
   for(;;)
   {
+	char frame[48];
+
 	send_pending_uart_status();
 
-	//valeur brute
-    sprintf(MSG,"%d|%.2f|%.2f|%d\r\n",encodeur,Temp1,Temp2,duty);
-
-    //valeur décimale
-    //sprintf(MSG,"O: %d T1: %d.%d T2: %d.%d\r\n",encodeur,Temp1_ent,Temp1_dec,Temp2_ent,Temp2_dec);
-	HAL_UART_Transmit(&huart2, MSG, sizeof(MSG), 100);
-	for(int i = 0; i<sizeof(MSG);i++){MSG[i]='\0';}
+	/* Measurement frame "count|temp1|temp2|duty\r\n" (see README).
+	 * Integer formatting: no dependency on newlib-nano float printf,
+	 * which is only enabled in the Debug configuration. */
+	snprintf(frame, sizeof(frame), "%d|%d.%d|%d.%d|%d\r\n",
+	         encodeur, Temp1_ent, Temp1_dec, Temp2_ent, Temp2_dec, duty);
+	send_uart_text(frame);
 
     osDelay(500);
   }
