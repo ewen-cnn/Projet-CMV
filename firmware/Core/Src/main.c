@@ -44,7 +44,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-DMA_HandleTypeDef hdma_adc1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
@@ -57,14 +56,12 @@ osThreadId Task_EnvoieHandle;
 osThreadId Task_CapteurVITHandle;
 /* USER CODE BEGIN PV */
 
-ADC_HandleTypeDef hadc2;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
@@ -75,6 +72,7 @@ void StartTask_Envoie(void const * argument);
 void StartTask_CapteurVIT(void const * argument);
 
 /* USER CODE BEGIN PFP */
+static uint32_t Read_ADC_Channel(uint32_t channel);
 
 /* USER CODE END PFP */
 
@@ -141,7 +139,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
@@ -156,13 +153,8 @@ int main(void)
   HAL_NVIC_EnableIRQ(USART2_IRQn);
   HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
 
-  HAL_ADC_Start(&hadc1); // Démarrer le convertisseur analogique-numérique
-  HAL_ADC_PollForConversion(&hadc1, 1000); // interroger pour conversion
-  ADCValue1 = HAL_ADC_GetValue(&hadc1); // obtenir la valeur ADC
-
-  HAL_ADC_Start(&hadc2); // Démarrer le convertisseur analogique-numérique
-  HAL_ADC_PollForConversion(&hadc2, 1000); // interroger pour conversion
-  ADCValue2 = HAL_ADC_GetValue(&hadc2); // obtenir la valeur ADC
+  ADCValue1 = Read_ADC_Channel(ADC_CHANNEL_0);
+  ADCValue2 = Read_ADC_Channel(ADC_CHANNEL_1);
 
   /* USER CODE END 2 */
 
@@ -290,13 +282,13 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -307,39 +299,12 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
-
-  hadc2.Instance = ADC1;
-  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc2.Init.ScanConvMode = DISABLE;
-  hadc2.Init.ContinuousConvMode = ENABLE;
-  hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc2.Init.NbrOfConversion = 1;
-  hadc2.Init.DMAContinuousRequests = ENABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-   if (HAL_ADC_Init(&hadc2) != HAL_OK)
-   {
-     Error_Handler();
-   }
-
-   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-   */
-   sConfig.Channel = ADC_CHANNEL_1;
-   sConfig.Rank = 1;
-   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-   if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-   {
-     Error_Handler();
-   }
 
   /* USER CODE END ADC1_Init 2 */
 
@@ -488,22 +453,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA2_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -561,6 +510,32 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/*
+ * Single software-triggered conversion on one ADC1 channel.
+ * ADC1 has a single regular sequencer: selecting the channel before each
+ * conversion is what lets PA0 and PA1 be read with one handle.
+ */
+static uint32_t Read_ADC_Channel(uint32_t channel)
+{
+    ADC_ChannelConfTypeDef sConfig = {0};
+    uint32_t value = 0;
+
+    sConfig.Channel = channel;
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
+    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_ADC_Start(&hadc1) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+        value = HAL_ADC_GetValue(&hadc1);
+    }
+    HAL_ADC_Stop(&hadc1);
+    return value;
+}
 
 static int clamp_int(int value, int min, int max)
 {
@@ -722,18 +697,14 @@ void StartTask_CapteurTEMP(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  HAL_ADC_Start(&hadc1); // Démarrer le convertisseur analogique-numérique
-	  HAL_ADC_PollForConversion(&hadc1, 1000); // interroger pour conversion
-	  ADCValue1 = HAL_ADC_GetValue(&hadc1); // obtenir la valeur ADC
+	  ADCValue1 = Read_ADC_Channel(ADC_CHANNEL_0); // PA0
 
 	  //valeur décimale
 	  Temp1 = ADCValue1 * resolution_Temp;
 	  Temp1_ent = Temp1; //partie entière de la température
 	  Temp1_dec = (Temp1-Temp1_ent) * 10; //partie décimale de la température (1 chiffre signicative)
 
-	  HAL_ADC_Start(&hadc2); // Démarrer le convertisseur analogique-numérique
-	  HAL_ADC_PollForConversion(&hadc2, 1000); // interroger pour conversion
-	  ADCValue2 = HAL_ADC_GetValue(&hadc2); // obtenir la valeur ADC
+	  ADCValue2 = Read_ADC_Channel(ADC_CHANNEL_1); // PA1
 
 	  //valeur décimale
 	  Temp2 = ADCValue2 * resolution_Temp;
