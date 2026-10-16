@@ -149,8 +149,6 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
-  HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(USART2_IRQn);
   HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
 
   ADCValue1 = Read_ADC_Channel(ADC_CHANNEL_0);
@@ -653,11 +651,6 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
         uart_rx_index = 0;
         HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
     }
-}
-
-void USART2_IRQHandler(void)
-{
-    HAL_UART_IRQHandler(&huart2);
 }
 
 
