@@ -1,0 +1,7 @@
+# STM32CubeIDE build outputs
+Debug/
+Release/
+
+# Machine-specific IDE state
+.settings/language.settings.xml
+*.launch

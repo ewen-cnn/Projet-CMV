@@ -22,9 +22,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,6 +57,8 @@ osThreadId Task_EnvoieHandle;
 osThreadId Task_CapteurVITHandle;
 /* USER CODE BEGIN PV */
 
+ADC_HandleTypeDef hadc2;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,12 +75,12 @@ void StartTask_Envoie(void const * argument);
 void StartTask_CapteurVIT(void const * argument);
 
 /* USER CODE BEGIN PFP */
-static uint32_t Read_ADC_Channel(uint32_t channel);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint8_t MSG[50] = {'\0'};
 uint8_t uart_rx_byte = 0;
 char uart_rx_line[32] = {'\0'};
 uint8_t uart_rx_index = 0;
@@ -150,10 +152,17 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
+  HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
   HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1);
 
-  ADCValue1 = Read_ADC_Channel(ADC_CHANNEL_0);
-  ADCValue2 = Read_ADC_Channel(ADC_CHANNEL_1);
+  HAL_ADC_Start(&hadc1); // Démarrer le convertisseur analogique-numérique
+  HAL_ADC_PollForConversion(&hadc1, 1000); // interroger pour conversion
+  ADCValue1 = HAL_ADC_GetValue(&hadc1); // obtenir la valeur ADC
+
+  HAL_ADC_Start(&hadc2); // Démarrer le convertisseur analogique-numérique
+  HAL_ADC_PollForConversion(&hadc2, 1000); // interroger pour conversion
+  ADCValue2 = HAL_ADC_GetValue(&hadc2); // obtenir la valeur ADC
 
   /* USER CODE END 2 */
 
@@ -281,13 +290,13 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -298,12 +307,39 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
+
+  hadc2.Instance = ADC1;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = DISABLE;
+  hadc2.Init.ContinuousConvMode = ENABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DMAContinuousRequests = ENABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+   if (HAL_ADC_Init(&hadc2) != HAL_OK)
+   {
+     Error_Handler();
+   }
+
+   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+   */
+   sConfig.Channel = ADC_CHANNEL_1;
+   sConfig.Rank = 1;
+   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+   if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+   {
+     Error_Handler();
+   }
 
   /* USER CODE END ADC1_Init 2 */
 
@@ -520,17 +556,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-  /* Arduino A0/A1 sur Nucleo: PA0/PA1, ADC1_IN0/ADC1_IN1 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-
 
 static int clamp_int(int value, int min, int max)
 {
@@ -548,32 +578,6 @@ static int clamp_int(int value, int min, int max)
 static void send_uart_text(const char *text)
 {
     HAL_UART_Transmit(&huart2, (uint8_t*)text, (uint16_t)strlen(text), 100);
-}
-
-static uint32_t Read_ADC_Channel(uint32_t channel)
-{
-    ADC_ChannelConfTypeDef sConfig = {0};
-    uint32_t value = 0;
-
-    sConfig.Channel = channel;
-    sConfig.Rank = 1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
-
-    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
-        Error_Handler();
-    }
-
-    if (HAL_ADC_Start(&hadc1) != HAL_OK) {
-        Error_Handler();
-    }
-
-    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
-        value = HAL_ADC_GetValue(&hadc1);
-    }
-
-    HAL_ADC_Stop(&hadc1);
-
-    return value;
 }
 
 static void send_pending_uart_status(void)
@@ -613,27 +617,33 @@ static void send_pending_uart_status(void)
 
 static void handle_uart_command(const char *line)
 {
-    if (strncmp(line, "PWM;", 4) == 0) {
-        char *end_ptr = NULL;
-        float requested_duty = strtof(&line[4], &end_ptr);
+    const char *value_start = NULL;
 
-        if (end_ptr == &line[4]) {
-            pending_uart_error = UART_ERROR_PWM;
-            return;
-        }
-
-        if (requested_duty < 0.0f) {
-            requested_duty = 0.0f;
-        } else if (requested_duty > 100.0f) {
-            requested_duty = 100.0f;
-        }
-
-        duty = clamp_int((int)(requested_duty + 0.5f), 0, 100);
-        pending_pwm_ack_duty = duty;
+    if (strncmp(line, "Duty : ", 7) == 0) {
+        value_start = &line[7];
+    } else if (strncmp(line, "PWM;", 4) == 0) {
+        value_start = &line[4];
+    } else {
+        pending_uart_error = UART_ERROR_CMD;
         return;
     }
 
-    pending_uart_error = UART_ERROR_CMD;
+    char *end_ptr = NULL;
+    float requested_duty = strtof(value_start, &end_ptr);
+
+    if (end_ptr == value_start) {
+        pending_uart_error = UART_ERROR_PWM;
+        return;
+    }
+
+    if (requested_duty < 0.0f) {
+        requested_duty = 0.0f;
+    } else if (requested_duty > 100.0f) {
+        requested_duty = 100.0f;
+    }
+
+    duty = clamp_int((int)(requested_duty + 0.5f), 0, 100);
+    pending_pwm_ack_duty = duty;
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -670,6 +680,11 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     }
 }
 
+void USART2_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&huart2);
+}
+
 
 /* USER CODE END 4 */
 
@@ -687,7 +702,7 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	TIM3->CCR1 = (9999 * duty) / 100;
+	TIM3->CCR1 = (9999*duty)/100.0;
 
     osDelay(333);
   }
@@ -707,14 +722,18 @@ void StartTask_CapteurTEMP(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  ADCValue1 = Read_ADC_Channel(ADC_CHANNEL_0);
+	  HAL_ADC_Start(&hadc1); // Démarrer le convertisseur analogique-numérique
+	  HAL_ADC_PollForConversion(&hadc1, 1000); // interroger pour conversion
+	  ADCValue1 = HAL_ADC_GetValue(&hadc1); // obtenir la valeur ADC
 
 	  //valeur décimale
 	  Temp1 = ADCValue1 * resolution_Temp;
 	  Temp1_ent = Temp1; //partie entière de la température
 	  Temp1_dec = (Temp1-Temp1_ent) * 10; //partie décimale de la température (1 chiffre signicative)
 
-	  ADCValue2 = Read_ADC_Channel(ADC_CHANNEL_1);
+	  HAL_ADC_Start(&hadc2); // Démarrer le convertisseur analogique-numérique
+	  HAL_ADC_PollForConversion(&hadc2, 1000); // interroger pour conversion
+	  ADCValue2 = HAL_ADC_GetValue(&hadc2); // obtenir la valeur ADC
 
 	  //valeur décimale
 	  Temp2 = ADCValue2 * resolution_Temp;
@@ -739,24 +758,17 @@ void StartTask_Envoie(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	char frame[64];
-
 	send_pending_uart_status();
 
-	// Format attendu par l'application: rpm|temp1|temp2|pwm_duty
-	snprintf(frame, sizeof(frame), "%d|%d.%d|%d.%d|%d\r\n",
-	         encodeur,
-	         Temp1_ent,
-	         Temp1_dec,
-	         Temp2_ent,
-	         Temp2_dec,
-	         duty);
+	//valeur brute
+    sprintf(MSG,"%d|%.2f|%.2f|%d\r\n",encodeur,Temp1,Temp2,duty);
 
     //valeur décimale
     //sprintf(MSG,"O: %d T1: %d.%d T2: %d.%d\r\n",encodeur,Temp1_ent,Temp1_dec,Temp2_ent,Temp2_dec);
-	send_uart_text(frame);
+	HAL_UART_Transmit(&huart2, MSG, sizeof(MSG), 100);
+	for(int i = 0; i<sizeof(MSG);i++){MSG[i]='\0';}
 
-    osDelay(33);
+    osDelay(500);
   }
   /* USER CODE END StartTask_Envoie */
 }
